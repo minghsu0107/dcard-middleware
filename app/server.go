@@ -15,7 +15,7 @@ type Server struct {
 
 // NewEngine is a factory for gin engine instance
 // Global Middlewares and api log configurations are registered here
-func NewEngine(config *Config) *gin.Engine {
+func NewEngine(config *Config, limiterRepo LimiterRepository) *gin.Engine {
 	gin.SetMode(config.GinMode)
 	if config.GinMode == "release" {
 		log.SetLevel(log.InfoLevel)
@@ -27,6 +27,7 @@ func NewEngine(config *Config) *gin.Engine {
 
 	engine := gin.New()
 	engine.Use(gin.Recovery())
+	engine.Use(RateLimiterMiddleware(limiterRepo, config.MaxVisitCount))
 	return engine
 }
 

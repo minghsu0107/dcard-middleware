@@ -16,10 +16,11 @@ func GetEnvWithDefault(key, fallback string) string {
 
 // Config is a type for general configuration
 type Config struct {
-	Port        string
-	GinMode     string
-	Logger      *Logger
-	RedisConfig *RedisConfig
+	Port          string
+	GinMode       string
+	Logger        *Logger
+	RedisConfig   *RedisConfig
+	MaxVisitCount int64
 }
 
 // RedisConfig is the configuration for redis
@@ -48,7 +49,11 @@ func NewConfig() (*Config, error) {
 	if err != nil {
 		return &Config{}, err
 	}
-	cacheExpiration, err := strconv.ParseInt(GetEnvWithDefault("CACHE_EXPIRATION", "3600"), 10, 64)
+	cacheExpiration, err := strconv.ParseInt(GetEnvWithDefault("REDIS_CACHE_EXPIRATION", "3600"), 10, 64)
+	if err != nil {
+		return &Config{}, err
+	}
+	maxVisitCount, err := strconv.ParseInt(GetEnvWithDefault("MAX_VISIT_COUNT", "1000"), 10, 64)
 	if err != nil {
 		return &Config{}, err
 	}
@@ -70,5 +75,6 @@ func NewConfig() (*Config, error) {
 			IdleTimeout:     time.Duration(redisIdleTimeout) * time.Second,
 			CacheExpiration: time.Duration(cacheExpiration) * time.Second,
 		},
+		MaxVisitCount: maxVisitCount,
 	}, nil
 }

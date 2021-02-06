@@ -36,30 +36,27 @@ func NewRedisLimiterRepository(config *Config) (LimiterRepository, error) {
 	}, nil
 }
 
-// GetVisitCount checks the existence of the given ipaddr
-// and returns true and the related visit count and ttl if the entry exists
-// otherwise returns false
-func (r *RedisLimiterRepository) GetVisitCount(ipaddr string) (*Record, bool, error) {
+// Exists check whether the key exists
+func (r *RedisLimiterRepository) Exists(ipaddr string) (bool, error) {
 	var err error
-	var count int
-	count, err = r.client.Get(r.ctx, ipaddr).Int()
-	if err == redis.Nil {
-		return nil, false, nil
-	}
+	intRes, err := r.client.Exists(r.ctx, ipaddr).Result()
 	if err != nil {
-		return nil, false, err
+		return false, err
 	}
+	exist := (intRes != 0)
+	return exist, nil
+}
 
+// GetTTL returns the time-to-expire of the given ip
+func (r *RedisLimiterRepository) GetTTL(ipaddr string) (time.Duration, error) {
 	var ttl time.Duration
+	var err error
 	ttl, err = r.client.TTL(r.ctx, ipaddr).Result()
 	if err != nil {
-		return nil, true, err
+		return 0, err
 	}
 
-	return &Record{
-		Count: count,
-		TTL:   ttl,
-	}, true, nil
+	return ttl, nil
 }
 
 // SetVisitCount sets visit count of the given ip
@@ -71,9 +68,12 @@ func (r *RedisLimiterRepository) SetVisitCount(ipaddr string, count int) error {
 }
 
 // IncrVisitCountByIP increments the visit count of the given ip by one
-func (r *RedisLimiterRepository) IncrVisitCountByIP(ipaddr string) error {
-	if _, err := r.client.Incr(r.ctx, ipaddr).Result(); err != nil {
-		return err
+func (r *RedisLimiterRepository) IncrVisitCountByIP(ipaddr string) (int64, error) {
+	var newCount int64
+	var err error
+	newCount, err = r.client.Incr(r.ctx, ipaddr).Result()
+	if err != nil {
+		return -1, err
 	}
-	return nil
+	return newCount, nil
 }

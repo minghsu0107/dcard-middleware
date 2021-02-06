@@ -6,13 +6,8 @@ import (
 
 // LimiterRepository defines the data access interface
 type LimiterRepository interface {
-	GetVisitCount(ipaddr string) (*Record, bool, error)
+	Exists(ipaddr string) (bool, error)
+	GetTTL(ipaddr string) (time.Duration, error)
 	SetVisitCount(ipaddr string, count int) error
-	IncrVisitCountByIP(ipaddr string) error
-}
-
-// Record contains client visiting count and ttl
-type Record struct {
-	Count int
-	TTL   time.Duration
+	IncrVisitCountByIP(ipaddr string) (int64, error)
 }
