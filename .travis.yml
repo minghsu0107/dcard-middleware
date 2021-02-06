@@ -1,6 +1,8 @@
 language: go
 go: 
-- 1.5.2
+- 1.15.2
+
+env: GO111MODULE=on
 
 script:
 - cd app
