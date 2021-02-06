@@ -3,4 +3,6 @@ go:
 - 1.5.2
 
 script:
-- cd app && go test ./...
+- cd app
+- go mod download
+- go test -v ./...
