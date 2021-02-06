@@ -9,13 +9,27 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// RateLimiterMiddleware implements rate limitation for all http endpoints
-func RateLimiterMiddleware(limiterRepo LimiterRepository, maxVisitCount int64) gin.HandlerFunc {
+// RateLimiterMiddleware is the type of rate limiter middleware
+type RateLimiterMiddleware struct {
+	Repo          LimiterRepository
+	MaxVisitCount int64
+}
+
+// NewRateLimiterMiddleware is the factory of RateLimiterMiddleware
+func NewRateLimiterMiddleware(config *Config, repo LimiterRepository) *RateLimiterMiddleware {
+	return &RateLimiterMiddleware{
+		Repo:          repo,
+		MaxVisitCount: config.MaxVisitCount,
+	}
+}
+
+// RateLimiter returns a gin middleware that implements rate limitation for all http endpoints
+func (m *RateLimiterMiddleware) RateLimiter() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ip := c.ClientIP()
 		var err error
 		var exist bool
-		exist, err = limiterRepo.Exists(ip)
+		exist, err = m.Repo.Exists(ip)
 		if err != nil {
 			middlewareErrorLogging(err)
 			c.Abort()
@@ -24,7 +38,7 @@ func RateLimiterMiddleware(limiterRepo LimiterRepository, maxVisitCount int64) g
 
 		var newVisitCount int64
 		if !exist {
-			if err := limiterRepo.SetVisitCount(ip, 1); err != nil {
+			if err := m.Repo.SetVisitCount(ip, 1); err != nil {
 				middlewareErrorLogging(err)
 				c.Abort()
 				return
@@ -32,7 +46,7 @@ func RateLimiterMiddleware(limiterRepo LimiterRepository, maxVisitCount int64) g
 			newVisitCount = 1
 		} else {
 			var err error
-			newVisitCount, err = limiterRepo.IncrVisitCountByIP(ip)
+			newVisitCount, err = m.Repo.IncrVisitCountByIP(ip)
 			if err != nil {
 				middlewareErrorLogging(err)
 				c.Abort()
@@ -41,20 +55,20 @@ func RateLimiterMiddleware(limiterRepo LimiterRepository, maxVisitCount int64) g
 		}
 
 		var ttl time.Duration
-		ttl, err = limiterRepo.GetTTL(ip)
+		ttl, err = m.Repo.GetTTL(ip)
 		if err != nil {
 			middlewareErrorLogging(err)
 			c.Abort()
 			return
 		}
 
-		remaining := maxVisitCount - newVisitCount
+		remaining := m.MaxVisitCount - newVisitCount
 		if remaining < 0 {
 			remaining = 0
 		}
 		c.Writer.Header().Set("X-RateLimit-Remaining", strconv.FormatInt(remaining, 10))
 		c.Writer.Header().Set("X-RateLimit-Reset", strconv.Itoa(int(ttl.Seconds())))
-		if newVisitCount > maxVisitCount {
+		if newVisitCount > m.MaxVisitCount {
 			c.AbortWithStatus(http.StatusTooManyRequests)
 			return
 		}

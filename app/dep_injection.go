@@ -9,6 +9,7 @@ func BuildContainer() *dig.Container {
 	container.Provide(NewConfig)
 	container.Provide(NewRedisLimiterRepository)
 	container.Provide(NewEngine)
+	container.Provide(NewRateLimiterMiddleware)
 	container.Provide(NewServer)
 
 	return container
