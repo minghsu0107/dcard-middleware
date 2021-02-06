@@ -55,7 +55,7 @@ func NewConfig() (*Config, error) {
 
 	ginMode := GetEnvWithDefault("GIN_MODE", "debug")
 	appName := GetEnvWithDefault("APP_NAME", "dcard_homework")
-	logger := NewLogger(appName)
+	logger := newLogger(appName)
 
 	return &Config{
 		Port:    GetEnvWithDefault("PORT", "80"),

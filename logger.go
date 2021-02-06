@@ -17,8 +17,7 @@ type Logger struct {
 	ContextLogger *log.Entry
 }
 
-// NewLogger is the factory of logger
-func NewLogger(appName string) *Logger {
+func newLogger(appName string) *Logger {
 	writer := os.Stderr
 	contextLogger := log.WithFields(log.Fields{
 		"app_name": appName,
