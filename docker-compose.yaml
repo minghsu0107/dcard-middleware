@@ -10,6 +10,19 @@ services:
     volumes:
     - redis_data:/data
     - ./redis.conf:/usr/local/etc/redis/redis.conf
-
+  web:
+    build: ./app
+    restart: always
+    environment:
+      PORT: ${PORT}
+      GIN_MODE: ${GIN_MODE}
+      REDIS_ADDR: ${REDIS_ADDR}
+      REDIS_PASSWD: ${REDIS_PASSWD}
+      REDIS_CACHE_EXPIRATION: ${REDIS_CACHE_EXPIRATION}
+      MAX_VISIT_COUNT: ${MAX_VISIT_COUNT}
+    ports:
+      - 80:${PORT}
+    depends_on:
+      - redis
 volumes:
   redis_data:
