@@ -1,0 +1,6 @@
+language: go
+go: 
+- 1.5.2
+
+script:
+- cd app && go test ./...
