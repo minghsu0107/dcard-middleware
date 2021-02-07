@@ -1,5 +1,5 @@
 # Dcard Homework - Rate Limiter Middleware
-https://travis-ci.com/minghsu0107/dcard-middleware.svg?branch=main
+![Build Status](https://travis-ci.com/minghsu0107/dcard-middleware.svg?branch=main)
 ## Description
 Dcard 每天午夜都有大量使用者湧入抽卡，為了不讓伺服器過載，請設計一個 middleware：
 
