@@ -1,10 +1,8 @@
 language: go
 go: 
-- 1.15.2
+- 1.15.x
 
 env: GO111MODULE=on
-
+before_install: cd app
 script:
-- cd app
-- go mod download
 - go test -v ./...
