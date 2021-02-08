@@ -15,7 +15,7 @@ type Server struct {
 
 // NewEngine is a factory for gin engine instance
 // Global Middlewares and api log configurations are registered here
-func NewEngine(config *Config, rateLimiterMiddleware *RateLimiterMiddleware) *gin.Engine {
+func NewEngine(config *Config, ginMiddlewareCollection *GinMiddlewareCollection) *gin.Engine {
 	gin.SetMode(config.GinMode)
 	if config.GinMode == "release" {
 		log.SetLevel(log.InfoLevel)
@@ -27,7 +27,9 @@ func NewEngine(config *Config, rateLimiterMiddleware *RateLimiterMiddleware) *gi
 
 	engine := gin.New()
 	engine.Use(gin.Recovery())
-	engine.Use(rateLimiterMiddleware.RateLimiter())
+	for _, ginMiddleware := range *ginMiddlewareCollection {
+		engine.Use(ginMiddleware.Provide())
+	}
 	return engine
 }
 

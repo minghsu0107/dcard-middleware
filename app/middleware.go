@@ -9,10 +9,29 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// GinMiddleware defines the middleware interface
+type GinMiddleware interface {
+	Provide() gin.HandlerFunc
+}
+
+// GinMiddlewareCollection is a list of GinMiddlewares
+// it is a helper for dependency injection
+type GinMiddlewareCollection []GinMiddleware
+
 // RateLimiterMiddleware is the type of rate limiter middleware
 type RateLimiterMiddleware struct {
 	Repo          LimiterRepository
 	MaxVisitCount int64
+	logger        *log.Entry
+}
+
+// NewGinMiddlewareCollection is the factory of GinMiddlewareCollection
+func NewGinMiddlewareCollection(ginMiddlewares ...GinMiddleware) *GinMiddlewareCollection {
+	var ginMiddlewareCollection GinMiddlewareCollection
+	for _, ginMiddleware := range ginMiddlewares {
+		ginMiddlewareCollection = append(ginMiddlewareCollection, ginMiddleware)
+	}
+	return &ginMiddlewareCollection
 }
 
 // NewRateLimiterMiddleware is the factory of RateLimiterMiddleware
@@ -20,18 +39,21 @@ func NewRateLimiterMiddleware(config *Config, repo LimiterRepository) *RateLimit
 	return &RateLimiterMiddleware{
 		Repo:          repo,
 		MaxVisitCount: config.MaxVisitCount,
+		logger: config.Logger.ContextLogger.WithFields(log.Fields{
+			"type": "middleware:rateLimiter",
+		}),
 	}
 }
 
-// RateLimiter returns a gin middleware that implements rate limitation for all http endpoints
-func (m *RateLimiterMiddleware) RateLimiter() gin.HandlerFunc {
+// Provide method is the implementation of the middleware inteface
+func (m *RateLimiterMiddleware) Provide() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ip := c.ClientIP()
 		var err error
 		var exist bool
 		exist, err = m.Repo.Exists(ip)
 		if err != nil {
-			middlewareErrorLogging(err)
+			m.logger.Error(err)
 			c.Abort()
 			return
 		}
@@ -39,7 +61,7 @@ func (m *RateLimiterMiddleware) RateLimiter() gin.HandlerFunc {
 		var newVisitCount int64
 		if !exist {
 			if err := m.Repo.SetVisitCount(ip, 1); err != nil {
-				middlewareErrorLogging(err)
+				m.logger.Error(err)
 				c.Abort()
 				return
 			}
@@ -48,7 +70,7 @@ func (m *RateLimiterMiddleware) RateLimiter() gin.HandlerFunc {
 			var err error
 			newVisitCount, err = m.Repo.IncrVisitCountByIP(ip)
 			if err != nil {
-				middlewareErrorLogging(err)
+				m.logger.Error(err)
 				c.Abort()
 				return
 			}
@@ -57,7 +79,7 @@ func (m *RateLimiterMiddleware) RateLimiter() gin.HandlerFunc {
 		var ttl time.Duration
 		ttl, err = m.Repo.GetTTL(ip)
 		if err != nil {
-			middlewareErrorLogging(err)
+			m.logger.Error(err)
 			c.Abort()
 			return
 		}
@@ -74,10 +96,4 @@ func (m *RateLimiterMiddleware) RateLimiter() gin.HandlerFunc {
 		}
 		c.Next()
 	}
-}
-
-func middlewareErrorLogging(err error) {
-	log.WithFields(log.Fields{
-		"type": "middleware",
-	}).Error(err)
 }

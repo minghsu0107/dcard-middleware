@@ -10,7 +10,7 @@ Dcard 每天午夜都有大量使用者湧入抽卡，為了不讓伺服器過�
 ## Idea
 因申請條件需要我們熟悉 Golang 或是 Node.js，而我本身又是 Golang 的愛好者，因此這次作業直接選擇 Golang 作為開發語言。
 
-此應用場景很適合使用 Redis 這類 in-memory 的 key-value store。實作上我以 client IP 當作 key 並記錄個別 IP 的請求總數，並我們可以利用 Redis 的 TTL 機制維護 rate limit 的歸零時間。另外，我使用了 gin 這個 web framework 構建 API 與 middleware、運用工廠模式與 dig 實現依賴注入、撰寫了單元測試並串接到 CI 工具 (使用 TravisCI)。
+此應用場景很適合使用 Redis 這類 in-memory 的 key-value store。實作上我以 client IP 當作 key 並記錄個別 IP 的請求總數，並我們可以利用 Redis 的 TTL 機制維護 rate limit 的歸零時間。另外，我使用了 gin 這個 web framework 構建 API 與 middleware、運用工廠模式與 wire 實現依賴注入、撰寫了單元測試並串接到 CI 工具 (使用 TravisCI)。
 
 與 Redis 的互動我使用了 interface 以解耦對資料庫的依賴。這樣的優點除了便於撰寫 mock test，在將來若要換別種資料庫也相對容易，只要實作此介面即可。
 ## Redis Configuration
