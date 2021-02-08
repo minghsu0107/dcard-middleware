@@ -39,7 +39,7 @@ func Test_RateLimiter(t *testing.T) {
 
 	config, _ := NewConfig()
 	testRedisLimiterRepository := NewTestRedisLimiterRepository(s, config)
-	engine := NewEngine(config, NewGinMiddlewareCollection(NewRateLimiterMiddleware(config, testRedisLimiterRepository)))
+	engine := NewEngine(config, NewRateLimiterMiddleware(config, testRedisLimiterRepository))
 	server := NewServer(config, engine)
 	server.RegisterRoutes()
 

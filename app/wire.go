@@ -4,19 +4,12 @@ package main
 
 import "github.com/google/wire"
 
-func InitializeRateLimiterMiddleware() (*RateLimiterMiddleware, error) {
-	wire.Build(
-		NewConfig,
-		NewRedisLimiterRepository,
-		NewRateLimiterMiddleware,
-	)
-	return &RateLimiterMiddleware{}, nil
-}
-
-func InitializeServer(ginMiddlewareCollection *GinMiddlewareCollection) (*Server, error) {
+func InitializeServer() (*Server, error) {
 	wire.Build(
 		NewConfig,
 		NewEngine,
+		NewRedisLimiterRepository,
+		NewRateLimiterMiddleware,
 		NewServer,
 	)
 	return &Server{}, nil

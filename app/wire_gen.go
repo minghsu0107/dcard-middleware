@@ -7,7 +7,7 @@ package main
 
 // Injectors from wire.go:
 
-func InitializeRateLimiterMiddleware() (*RateLimiterMiddleware, error) {
+func InitializeServer() (*Server, error) {
 	config, err := NewConfig()
 	if err != nil {
 		return nil, err
@@ -17,15 +17,7 @@ func InitializeRateLimiterMiddleware() (*RateLimiterMiddleware, error) {
 		return nil, err
 	}
 	rateLimiterMiddleware := NewRateLimiterMiddleware(config, limiterRepository)
-	return rateLimiterMiddleware, nil
-}
-
-func InitializeServer(ginMiddlewareCollection *GinMiddlewareCollection) (*Server, error) {
-	config, err := NewConfig()
-	if err != nil {
-		return nil, err
-	}
-	engine := NewEngine(config, ginMiddlewareCollection)
+	engine := NewEngine(config, rateLimiterMiddleware)
 	server := NewServer(config, engine)
 	return server, nil
 }

@@ -9,29 +9,11 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// GinMiddleware defines the middleware interface
-type GinMiddleware interface {
-	Provide() gin.HandlerFunc
-}
-
-// GinMiddlewareCollection is a list of GinMiddlewares
-// it is a helper for dependency injection
-type GinMiddlewareCollection []GinMiddleware
-
 // RateLimiterMiddleware is the type of rate limiter middleware
 type RateLimiterMiddleware struct {
 	Repo          LimiterRepository
 	MaxVisitCount int64
 	logger        *log.Entry
-}
-
-// NewGinMiddlewareCollection is the factory of GinMiddlewareCollection
-func NewGinMiddlewareCollection(ginMiddlewares ...GinMiddleware) *GinMiddlewareCollection {
-	var ginMiddlewareCollection GinMiddlewareCollection
-	for _, ginMiddleware := range ginMiddlewares {
-		ginMiddlewareCollection = append(ginMiddlewareCollection, ginMiddleware)
-	}
-	return &ginMiddlewareCollection
 }
 
 // NewRateLimiterMiddleware is the factory of RateLimiterMiddleware
@@ -45,7 +27,7 @@ func NewRateLimiterMiddleware(config *Config, repo LimiterRepository) *RateLimit
 	}
 }
 
-// Provide method is the implementation of the middleware inteface
+// Provide method returns a gin handler function
 func (m *RateLimiterMiddleware) Provide() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ip := c.ClientIP()
