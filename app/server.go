@@ -41,7 +41,7 @@ func NewServer(config *Config, engine *gin.Engine) *Server {
 
 // RegisterRoutes method register all endpoints
 func (s *Server) RegisterRoutes() {
-	s.Engine.GET("/", helloworld)
+	s.Engine.GET("/hello", helloworld)
 }
 
 // Run is a method for starting server

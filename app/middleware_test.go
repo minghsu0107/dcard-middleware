@@ -45,7 +45,7 @@ func Test_RateLimiter(t *testing.T) {
 
 	getResponse := func(router *gin.Engine) *httptest.ResponseRecorder {
 		w := httptest.NewRecorder()
-		r, _ := http.NewRequest("GET", "/", nil)
+		r, _ := http.NewRequest("GET", "/hello", nil)
 		router.ServeHTTP(w, r)
 		return w
 	}

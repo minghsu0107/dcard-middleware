@@ -1,5 +1,17 @@
 version: "3"
 services:
+  reverse-proxy:
+    image: traefik:v2.3
+    command:
+      - "--entryPoints.web.address=:80"
+      - "--api.insecure=true"
+      - "--providers.docker"
+      - "--providers.docker.exposedbydefault=false"
+    ports:
+      - "80:80"
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
   redis:
     image: redis:alpine
     command:
@@ -10,7 +22,7 @@ services:
     volumes:
     - redis_data:/data
     - ./redis.conf:/usr/local/etc/redis/redis.conf
-  web:
+  backend:
     build: ./app
     restart: always
     environment:
@@ -21,8 +33,18 @@ services:
       REDIS_CACHE_EXPIRATION: ${REDIS_CACHE_EXPIRATION}
       MAX_VISIT_COUNT: ${MAX_VISIT_COUNT}
     ports:
-      - 80:${PORT}
+      - "${PORT}"
     depends_on:
       - redis
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=Host(`dcard.homework`) && PathPrefix(`/hello`)"
+      - "traefik.http.routers.backend.entrypoints=web"
+      - "traefik.http.routers.backend.service=backend-service"
+      - "traefik.http.services.backend-service.loadbalancer.server.port=${PORT}"
+      - "traefik.http.middlewares.api-ratelimit.ratelimit.average=1000"
+      - "traefik.http.middlewares.api-ratelimit.ratelimit.period=60m"
+      # maximum number of requests allowed to go through in the same arbitrarily small period of time
+      - "traefik.http.middlewares.api-ratelimit.ratelimit.burst=50"
 volumes:
   redis_data:

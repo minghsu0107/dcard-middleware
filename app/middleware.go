@@ -31,6 +31,8 @@ func NewRateLimiterMiddleware(config *Config, repo LimiterRepository) *RateLimit
 func (m *RateLimiterMiddleware) Provide() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ip := c.ClientIP()
+		m.logger.Infof("client ip: %v\n", ip)
+
 		var err error
 		var exist bool
 		exist, err = m.Repo.Exists(ip)
