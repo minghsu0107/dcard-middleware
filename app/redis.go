@@ -59,8 +59,8 @@ func (r *RedisLimiterRepository) IncrVisitCountByIP(ipaddr string) (int64, error
 	return newCount, nil
 }
 
-// SetVisitCount sets visit count of the given ip with ttl if the key does not exist, otherwise do nothing
-func (r *RedisLimiterRepository) SetVisitCount(ipaddr string, count int) error {
+// SetVisitCountNX sets visit count of the given ip with ttl if the key does not exist, otherwise do nothing
+func (r *RedisLimiterRepository) SetVisitCountNX(ipaddr string, count int) error {
 	if err := r.client.SetNX(r.ctx, ipaddr, count, r.expiration).Err(); err != nil {
 		return err
 	}

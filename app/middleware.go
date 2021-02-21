@@ -34,7 +34,7 @@ func (m *RateLimiterMiddleware) Provide() gin.HandlerFunc {
 		m.logger.Infof("client ip: %v\n", ip)
 
 		var err error
-		if err := m.Repo.SetVisitCount(ip, 0); err != nil {
+		if err := m.Repo.SetVisitCountNX(ip, 0); err != nil {
 			m.logger.Error(err)
 			c.Abort()
 			return
