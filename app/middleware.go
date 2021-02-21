@@ -34,30 +34,18 @@ func (m *RateLimiterMiddleware) Provide() gin.HandlerFunc {
 		m.logger.Infof("client ip: %v\n", ip)
 
 		var err error
-		var exist bool
-		exist, err = m.Repo.Exists(ip)
-		if err != nil {
+		if err := m.Repo.SetVisitCount(ip, 0); err != nil {
 			m.logger.Error(err)
 			c.Abort()
 			return
 		}
 
 		var newVisitCount int64
-		if !exist {
-			if err := m.Repo.SetVisitCount(ip, 1); err != nil {
-				m.logger.Error(err)
-				c.Abort()
-				return
-			}
-			newVisitCount = 1
-		} else {
-			var err error
-			newVisitCount, err = m.Repo.IncrVisitCountByIP(ip)
-			if err != nil {
-				m.logger.Error(err)
-				c.Abort()
-				return
-			}
+		newVisitCount, err = m.Repo.IncrVisitCountByIP(ip)
+		if err != nil {
+			m.logger.Error(err)
+			c.Abort()
+			return
 		}
 
 		var ttl time.Duration
