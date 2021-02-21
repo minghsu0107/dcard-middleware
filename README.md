@@ -41,11 +41,11 @@ if !exist {
     }
 }
 ```
-然而這樣的寫法在併發量很高的時候會出現 race condition：
+然而這樣的寫法在併發量高的時候容易出現 race condition：
 
 ![](./asset/race-condition.png)
 
-在我們判斷 key 是否存在與將它設為 1 的之間，可能會有其他併發的請求打進來而沒有被記錄到，這會造成 counter 的值會小於實際的請求數量。
+在我們判斷 key 是否存在與將它設為 1 之間，可能會有其他併發的請求打進來而沒有被記錄到，這會造成 counter 的值小於實際請求的數量。
 
 為了解決這個問題，我使用了 Redis 的 `SETNX`，當 key 不存在時 set value，當 key 存在時則忽略，並設下 key 的 TTL。值得注意的是此指令為原子操作，因而解決了上述的 race condition。
 ## API Gateway
