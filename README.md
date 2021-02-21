@@ -13,6 +13,41 @@ Dcard 每天午夜都有大量使用者湧入抽卡，為了不讓伺服器過�
 此應用場景很適合使用 Redis 這類 in-memory 的 key-value store。實作上我以 client IP 當作 key 並記錄個別 IP 的請求總數，並我們可以利用 Redis 的 TTL 機制維護 rate limit 的歸零時間。另外，我使用了 gin 這個 web framework 構建 API 與 middleware、運用工廠模式與 wire 實現依賴注入、撰寫了單元測試並串接到 CI 工具 (使用 TravisCI)。
 
 與 Redis 的互動我使用了 interface 以解耦對資料庫的依賴。這樣的優點除了便於撰寫 mock test，在將來若要換別種資料庫也相對容易，只要實作此介面即可。
+## Race Condition
+最一開始的 rate limiter 實作中，會先檢查 IP 是否存在，若存在則 counter 加 1，否則就以此 IP 新增一個 key 並設其值為 1：
+```go
+exist, err = m.Repo.Exists(ip)
+if err != nil {
+    m.logger.Error(err)
+    c.Abort()
+    return
+}
+
+var newVisitCount int64
+if !exist {
+    if err := m.Repo.SetVisitCount(ip, 1); err != nil {
+        m.logger.Error(err)
+        c.Abort()
+        return
+    }
+    newVisitCount = 1
+} else {
+    var err error
+    newVisitCount, err = m.Repo.IncrVisitCountByIP(ip)
+    if err != nil {
+        m.logger.Error(err)
+        c.Abort()
+        return
+    }
+}
+```
+然而這樣的寫法在併發量很高的時候會出現 race condition：
+
+![](./asset/race-condition.png)
+
+在我們判斷 key 是否存在與將它設為 1 的之間，可能會有其他併發的請求打進來而沒有被記錄到，這會造成 counter 的值會小於實際的請求數量。
+
+為了解決這個問題，我使用了 Redis 的 `SETNX`，當 key 不存在時 set value，當 key 存在時則忽略，並設下 key 的 TTL。值得注意的是此指令為原子操作，因而解決了上述的 race condition。
 ## API Gateway
 若對每個進來的請求我們都訪問 Redis，那當大流量瞬間湧進時 Redis server 很可能也會無法應付。這時有一些解決方式可以考慮：
 1. 先訪問 local cache，如果 local cache 沒有才去訪問 Redis
