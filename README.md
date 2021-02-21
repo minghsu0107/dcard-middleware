@@ -53,7 +53,9 @@ if !exist {
 1. 先訪問 local cache，如果 local cache 沒有才去訪問 Redis
 2. 在 API 前方擋一個 API Gateway (reverse proxy)，並在 Gateway 上使用 in-memory rate limiter 直接阻擋超出的流量，不讓它訪問到後端 API。
 
-這裡選擇第二種方式。方法一因還需考慮各個 API replica 的 cache 一致性與 expiration 的而複雜化了問題，而方法二有個好處就是許多 reverse proxy 都有現成且 well-tested 的 middleware 可以利用，讓我們不用再造輪子。我們使用的 reverse proxy 是 [Traefik](https://traefik.io)，並加入 [RateLimit Middleware](https://doc.traefik.io/traefik/middlewares/ratelimit/)，設定每小時自同 IP 的請求數量不得超過 1000，並且預留 50 個 bursting 請求。現在我們有兩層的 rate limiter 保護後端 API，若我們部署到 K8s 上還可以使用 HPA (Horizontal Pod Autoscaler) 根據流量改變 replica 數量，提高並發量。
+這裡選擇第二種方式。方法一因還需考慮各個 API replica 的 cache 一致性與 expiration 的而複雜化了問題，而方法二有個好處就是許多 reverse proxy 都有現成且 well-tested 的 middleware 可以利用，讓我們不用再造輪子。我們使用的 reverse proxy 是 [Traefik](https://traefik.io)，並加入 [RateLimit Middleware](https://doc.traefik.io/traefik/middlewares/ratelimit/)，設定每小時自同 IP 的請求數量不得超過 1000，並且預留 50 個 bursting 請求。
+
+Note: `successful requests = (period * rate + burst) * (number of replicas)`
 ## Redis Configuration
 如果我們的記憶體最大容量只有 5G，但是卻寫了 10G 的資料怎麼辦？這時就需要 Redis 的淘汰機制去刪除不需要的資料。Redis 採用的淘汰機制是定期刪除 + 懶惰刪除。
 
