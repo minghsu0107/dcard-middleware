@@ -11,7 +11,14 @@ import (
 	"github.com/alicebob/miniredis/v2"
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
+
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 )
+
+var config *Config
+var s *miniredis.Miniredis
+var server *Server
 
 func NewTestRedisLimiterRepository(s *miniredis.Miniredis, config *Config) *RedisLimiterRepository {
 	return &RedisLimiterRepository{
@@ -23,60 +30,87 @@ func NewTestRedisLimiterRepository(s *miniredis.Miniredis, config *Config) *Redi
 	}
 }
 
-func NewTestRecorder(router *gin.Engine) *httptest.ResponseRecorder {
-	w := httptest.NewRecorder()
-	r, _ := http.NewRequest("GET", "/", nil)
-	router.ServeHTTP(w, r)
-	return w
-}
-
-func Test_RateLimiter(t *testing.T) {
+func NewMiniRedis() *miniredis.Miniredis {
 	s, err := miniredis.Run()
 	if err != nil {
 		panic(err)
 	}
-	defer s.Close()
+	return s
+}
 
-	config, _ := NewConfig()
+func NewTestServer(config *Config) *Server {
 	testRedisLimiterRepository := NewTestRedisLimiterRepository(s, config)
 	engine := NewEngine(config, NewRateLimiterMiddleware(config, testRedisLimiterRepository))
 	server := NewServer(config, engine)
 	server.RegisterRoutes()
-
-	getResponse := func(router *gin.Engine) *httptest.ResponseRecorder {
-		w := httptest.NewRecorder()
-		r, _ := http.NewRequest("GET", "/hello", nil)
-		router.ServeHTTP(w, r)
-		return w
-	}
-
-	maxVisitCount := int(config.MaxVisitCount)
-	for i := 0; i < maxVisitCount*2; i++ {
-		w := getResponse(server.Engine)
-		if i < maxVisitCount && w.Code != 200 {
-			t.Fatal("error before reach maximum visit count", i, w.Code, w.Result().Header)
-		} else if i >= maxVisitCount && w.Code != 429 {
-			t.Fatal("not sending 429 code", i, w.Code, w.Result().Header)
-		}
-	}
-
-	// test if ttl works as expected
-	s.FastForward(testRedisLimiterRepository.expiration - 1*time.Second)
-	w := getResponse(server.Engine)
-	if w.Code != 429 {
-		t.Fatal("not sending 429 code before expiration")
-	}
-	s.FastForward(time.Second)
-	w = getResponse(server.Engine)
-	curVisitCount, err := strconv.Atoi(w.Result().Header.Get("X-RateLimit-Remaining"))
-	if err != nil {
-		t.Fatal("X-RateLimit-Remaining is not a number")
-	}
-	curResetSeconds, err := strconv.Atoi(w.Result().Header.Get("X-Ratelimit-Reset"))
-	if err != nil {
-		t.Fatal("X-Ratelimit-Reset is not a number")
-	}
-	if (curVisitCount != maxVisitCount-1) || (curResetSeconds != int(config.RedisConfig.CacheExpiration.Seconds())) {
-		t.Fatal("TTL is not working")
-	}
+	return server
 }
+
+func TestMiddleware(t *testing.T) {
+	RegisterFailHandler(Fail)
+	var _ = BeforeSuite(func() {
+		config, _ = NewConfig()
+		s = NewMiniRedis()
+		server = NewTestServer(config)
+	})
+	RunSpecs(t, "middleware suite")
+}
+
+func GetResponse(router *gin.Engine, url string) *httptest.ResponseRecorder {
+	w := httptest.NewRecorder()
+	r, _ := http.NewRequest("GET", url, nil)
+	router.ServeHTTP(w, r)
+	return w
+}
+
+var _ = Describe("middleware", func() {
+	var url string
+	var maxVisitCount int
+	// BeforeEach blocks are run before It blocks
+	BeforeEach(func() {
+		url = "/hello"
+		maxVisitCount = int(config.MaxVisitCount)
+	})
+
+	Describe("rate limiting", func() {
+		It("should count requests correctly", func() {
+			Context("when not exceeding max accepted requests", func() {
+				for i := 0; i < maxVisitCount; i++ {
+					w := GetResponse(server.Engine, url)
+					Expect(w.Code).To(Equal(200))
+				}
+			})
+			Context("when not exceeding max accepted requests", func() {
+				for i := maxVisitCount; i < maxVisitCount*2; i++ {
+					w := GetResponse(server.Engine, url)
+					Expect(w.Code).To(Equal(429))
+				}
+			})
+		})
+		It("should maintain expiry", func() {
+			s.FastForward(config.RedisConfig.CacheExpiration - 1*time.Second)
+			w := GetResponse(server.Engine, url)
+			Expect(w.Code).To(Equal(429))
+		})
+		It("should reset after rate limit expires", func() {
+			s.FastForward(time.Second)
+			w := GetResponse(server.Engine, url)
+			Expect(w.Code).To(Equal(200))
+		})
+		It("should set X-RateLimit-Remaining and X-Ratelimit-Reset headers", func() {
+			w := GetResponse(server.Engine, url)
+			var err error
+			var curVisitCount int
+			var curResetSeconds int
+			curVisitCount, err = strconv.Atoi(w.Result().Header.Get("X-RateLimit-Remaining"))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(curVisitCount >= 1).To(BeTrue())
+			Expect(curVisitCount < maxVisitCount).To(BeTrue())
+
+			curResetSeconds, err = strconv.Atoi(w.Result().Header.Get("X-Ratelimit-Reset"))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(curResetSeconds > 0).To(BeTrue())
+			Expect(curResetSeconds <= int(config.RedisConfig.CacheExpiration.Seconds())).To(BeTrue())
+		})
+	})
+})

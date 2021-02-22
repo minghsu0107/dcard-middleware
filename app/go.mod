@@ -7,6 +7,8 @@ require (
 	github.com/gin-gonic/gin v1.6.3
 	github.com/go-redis/redis/v8 v8.5.0
 	github.com/google/wire v0.5.0
+	github.com/onsi/ginkgo v1.15.0
+	github.com/onsi/gomega v1.10.5
 	github.com/sirupsen/logrus v1.7.0
 	go.uber.org/dig v1.10.0
 )
