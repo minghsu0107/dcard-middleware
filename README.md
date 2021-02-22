@@ -48,6 +48,8 @@ if !exist {
 在我們判斷 key 是否存在與將它設為 1 之間，可能會有其他併發的請求打進來而沒有被記錄到，這會造成 counter 的值小於實際請求的數量。
 
 為了解決這個問題，我使用了 Redis 的 `SETNX`，當 key 不存在時 set value，當 key 存在時則忽略，並設下 key 的 TTL。值得注意的是此指令為原子操作，因而解決了上述的 race condition。
+
+另外，為了減少訪問 Redis 的 round trip overhead，我使用了 pipeline 將所有指令用一個 connection 一次送出，這樣便可降低 Redis 的 networking 負擔。
 ## API Gateway
 若對每個進來的請求我們都訪問 Redis，那當大流量瞬間湧進時 Redis server 很可能也會無法應付。這時有一些解決方式可以考慮：
 1. 先訪問 local cache，如果 local cache 沒有才去訪問 Redis
