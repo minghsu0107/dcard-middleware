@@ -3,7 +3,6 @@ package main
 import (
 	"net/http"
 	"strconv"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
@@ -33,23 +32,7 @@ func (m *RateLimiterMiddleware) Provide() gin.HandlerFunc {
 		ip := c.ClientIP()
 		m.logger.Infof("client ip: %v\n", ip)
 
-		var err error
-		if err := m.Repo.SetVisitCountNX(ip, 0); err != nil {
-			m.logger.Error(err)
-			c.Abort()
-			return
-		}
-
-		var newVisitCount int64
-		newVisitCount, err = m.Repo.IncrVisitCountByIP(ip)
-		if err != nil {
-			m.logger.Error(err)
-			c.Abort()
-			return
-		}
-
-		var ttl time.Duration
-		ttl, err = m.Repo.GetTTL(ip)
+		newVisitCount, ttl, err := m.Repo.Limit(ip)
 		if err != nil {
 			m.logger.Error(err)
 			c.Abort()

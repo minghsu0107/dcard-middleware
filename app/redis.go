@@ -36,44 +36,35 @@ func NewRedisLimiterRepository(config *Config) (LimiterRepository, error) {
 	}, nil
 }
 
-// GetTTL returns the time-to-expire of the given ip
-func (r *RedisLimiterRepository) GetTTL(ipaddr string) (time.Duration, error) {
-	var ttl time.Duration
-	var err error
-	ttl, err = r.client.TTL(r.ctx, ipaddr).Result()
+// Limit exeucutes SetVisitCountNX, IncrVisitCountByIP, and GetTTL in a pipeline
+// to reduce networking overhead. It returns the updated visit count and current TTL of the given ip
+func (r *RedisLimiterRepository) Limit(ipaddr string) (int64, time.Duration, error) {
+	pipe := r.client.Pipeline()
+	pipedCmds := []interface{}{
+		pipe.SetNX(r.ctx, ipaddr, 0, r.expiration),
+		pipe.Incr(r.ctx, ipaddr),
+		pipe.TTL(r.ctx, ipaddr),
+	}
+	_, err := pipe.Exec(r.ctx)
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 
-	return ttl, nil
-}
+	executedSetVisitCountNX := pipedCmds[0].(*redis.BoolCmd)
+	executedIncrVisitCountByIP := pipedCmds[1].(*redis.IntCmd)
+	executedGetTTL := pipedCmds[2].(*redis.DurationCmd)
 
-// IncrVisitCountByIP increments the visit count of the given ip by one
-func (r *RedisLimiterRepository) IncrVisitCountByIP(ipaddr string) (int64, error) {
 	var newCount int64
-	var err error
-	newCount, err = r.client.Incr(r.ctx, ipaddr).Result()
-	if err != nil {
-		return -1, err
-	}
-	return newCount, nil
-}
+	var ttl time.Duration
 
-// SetVisitCountNX sets visit count of the given ip with ttl if the key does not exist, otherwise do nothing
-func (r *RedisLimiterRepository) SetVisitCountNX(ipaddr string, count int) error {
-	if err := r.client.SetNX(r.ctx, ipaddr, count, r.expiration).Err(); err != nil {
-		return err
+	if err = executedSetVisitCountNX.Err(); err != nil {
+		return 0, 0, err
 	}
-	return nil
-}
-
-// Exists check whether the key exists
-func (r *RedisLimiterRepository) Exists(ipaddr string) (bool, error) {
-	var err error
-	intRes, err := r.client.Exists(r.ctx, ipaddr).Result()
-	if err != nil {
-		return false, err
+	if newCount, err = executedIncrVisitCountByIP.Result(); err != nil {
+		return 0, 0, err
 	}
-	exist := (intRes != 0)
-	return exist, nil
+	if ttl, err = executedGetTTL.Result(); err != nil {
+		return 0, 0, err
+	}
+	return newCount, ttl, nil
 }
