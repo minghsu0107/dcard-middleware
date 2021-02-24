@@ -16,9 +16,22 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var config *Config
-var s *miniredis.Miniredis
-var server *Server
+var (
+	config *Config
+	s      *miniredis.Miniredis
+	server *Server
+)
+
+func TestMiddleware(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "middleware suite")
+}
+
+var _ = BeforeSuite(func() {
+	config, _ = NewConfig()
+	s = NewMiniRedis()
+	server = NewTestServer(config)
+})
 
 func NewTestRedisLimiterRepository(s *miniredis.Miniredis, config *Config) *RedisLimiterRepository {
 	return &RedisLimiterRepository{
@@ -44,16 +57,6 @@ func NewTestServer(config *Config) *Server {
 	server := NewServer(config, engine)
 	server.RegisterRoutes()
 	return server
-}
-
-func TestMiddleware(t *testing.T) {
-	RegisterFailHandler(Fail)
-	var _ = BeforeSuite(func() {
-		config, _ = NewConfig()
-		s = NewMiniRedis()
-		server = NewTestServer(config)
-	})
-	RunSpecs(t, "middleware suite")
 }
 
 func GetResponse(router *gin.Engine, url string) *httptest.ResponseRecorder {
